@@ -2,7 +2,7 @@ import asyncio
 import os
 import re
 import trafilatura
-from litellm import completion
+import litellm
 from duckduckgo_search import AsyncDDGS
 from PyPDF2 import PdfReader
 from concurrent.futures import ThreadPoolExecutor
@@ -12,11 +12,28 @@ from telegram.ext import CommandHandler, MessageHandler, CallbackQueryHandler, f
 from youtube_transcript_api import YouTubeTranscriptApi
 
 telegram_token = os.environ.get("TELEGRAM_TOKEN", "xxx")
-model = os.environ.get("LLM_MODEL", "gpt-3.5-turbo-16k")
-lang = os.environ.get("TS_LANG", "Taiwanese Mandarin")
+model = os.environ.get("LLM_MODEL", "openrouter/openai/gpt-4o-mini")
+#lang = os.environ.get("TS_LANG", "Ameri")
 ddg_region = os.environ.get("DDG_REGION", "wt-wt")
 chunk_size = int(os.environ.get("CHUNK_SIZE", 10000))
 allowed_users = os.environ.get("ALLOWED_USERS", "")
+#os.environ["OPENROUTER_API_KEY"] = os.environ.get("OPENROUTER_API_KEY_ENV", "")
+litellm.set_verbose=True
+
+system_prompt ="""
+Do NOT repeat unmodified content.
+Do NOT mention anything like "Here is the summary:" or "Here is a summary of the video in 2-3 sentences:" etc.
+User will only give you youtube video subtitles, For summarizing YouTube video subtitles:
+- No word limit on summaries.
+- Use Telegram markdowns for better formatting: **bold**, *italic*, `monospace`, ~~strike~~, <u>underline</u>, <pre language="c++">code</pre>.
+- Try to cover every concept that are covered in the subtitles.
+
+For song lyrics, poems, recipes, sheet music, or short creative content:
+- Do NOT repeat the full content verbatim.
+- This restriction applies even for transformations or translations.
+- Provide short snippets, high-level summaries, analysis, or commentary.
+
+Be helpful without directly copying content."""
 
 def split_user_input(text):
     # Split the input text into paragraphs
@@ -72,9 +89,7 @@ def summarize(text_array):
         # Call the GPT API in parallel to summarize the text chunks
         summaries = []
         system_messages = [
-            {"role": "system", "content": "You are an expert in creating summaries that capture the main points and key details."},
-            {"role": "system", "content": f"You will show the bulleted list content without translate any technical terms."},
-            {"role": "system", "content": f"You will print all the content in {lang}."},
+            {"role": "system", "content": f"{system_prompt}"}
         ]
         with ThreadPoolExecutor() as executor:
             futures = [executor.submit(call_gpt_api, f"Summary keypoints for the following text:\n{chunk}", system_messages) for chunk in text_chunks]
@@ -84,7 +99,7 @@ def summarize(text_array):
         if len(summaries) <= 5:
             summary = ' '.join(summaries)
             with tqdm(total=1, desc="Final summarization") as progress_bar:
-                final_summary = call_gpt_api(f"Create a bulleted list using {lang} to show the key points of the following text:\n{summary}", system_messages)
+                final_summary = call_gpt_api(f"Create a bulleted list to show the key points of the following text:\n{summary}", system_messages)
                 progress_bar.update(1)
             return final_summary
         else:
@@ -133,7 +148,7 @@ def call_gpt_api(prompt, additional_messages=[]):
     Call GPT API
     """
     try:
-        response = completion(
+        response = litellm.completion(
         # response = openai.ChatCompletion.create(
             model=model,
             messages=additional_messages+[
@@ -163,13 +178,14 @@ def handle_button_click(update, context):
     return handle('button_click', update, context)
 
 async def handle(command, update, context):
+    user_id = update.effective_user.id
     chat_id = update.effective_chat.id
-    print("chat_id=", chat_id)
+    print("user_id=", user_id)
 
     if allowed_users:
         user_ids = allowed_users.split(',')
-        if str(chat_id) not in user_ids:
-            print(chat_id, "is not allowed.")
+        if str(user_id) not in user_ids:
+            print(user_id, "is not allowed.")
             await context.bot.send_message(chat_id=chat_id, text="You have no permission to use this bot.")
             return
 
@@ -232,7 +248,7 @@ async def handle(command, update, context):
 
             if update.callback_query.data == "why_it_matters":
                 result = call_gpt_api(f"{original_message_text}\nBased on the content above, tell me why it matters as an expert.", [
-                    {"role": "system", "content": f"You will show the result in {lang}."}
+                    {"role": "system", "content": f"You will show the result in English."}
                 ])
                 await context.bot.send_message(chat_id=chat_id, text=result, reply_to_message_id=update.callback_query.message.message_id)
     except Exception as e:
