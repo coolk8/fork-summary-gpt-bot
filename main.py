@@ -3,7 +3,7 @@ import os
 import re
 import trafilatura
 import litellm
-import redis
+import aioredis
 import hashlib
 from duckduckgo_search import AsyncDDGS
 from PyPDF2 import PdfReader
@@ -23,7 +23,11 @@ allowed_users = os.environ.get("ALLOWED_USERS", "")
 litellm.set_verbose=True
 
 # Initialize Redis
-redis_client = redis.Redis(host='localhost', port=6379, db=0)
+redis_client = None
+
+async def init_redis():
+    global redis_client
+    redis_client = await aioredis.from_url("redis://localhost")
 
 system_prompt ="""
 Do NOT repeat unmodified content.
@@ -204,10 +208,10 @@ async def handle(command, update, context):
             print("user_input=", user_input)
 
             content_hash = get_hash(user_input)
-            cached_summary = get_cached_summary(content_hash)
+            cached_summary = await get_cached_summary(content_hash)
 
             if cached_summary:
-                add_user_request(user_id, content_hash)
+                await add_user_request(user_id, content_hash)
                 await context.bot.send_message(chat_id=chat_id, text=cached_summary, reply_to_message_id=update.message.message_id, reply_markup=get_inline_keyboard_buttons())
                 return
 
@@ -220,8 +224,8 @@ async def handle(command, update, context):
             await context.bot.send_chat_action(chat_id=chat_id, action="TYPING")
             summary = summarize(text_array)
             
-            cache_summary(content_hash, summary)
-            add_user_request(user_id, content_hash)
+            await cache_summary(content_hash, summary)
+            await add_user_request(user_id, content_hash)
 
             await context.bot.send_message(chat_id=chat_id, text=f"{summary}", reply_to_message_id=update.message.message_id, reply_markup=get_inline_keyboard_buttons())
         elif command == 'file':
@@ -309,20 +313,21 @@ def get_inline_keyboard_buttons():
 def get_hash(content):
     return hashlib.md5(content.encode()).hexdigest()
 
-def get_cached_summary(content_hash):
-    return redis_client.hget('summaries', content_hash)
+async def get_cached_summary(content_hash):
+    return await redis_client.hget('summaries', content_hash)
 
-def cache_summary(content_hash, summary):
-    redis_client.hset('summaries', content_hash, summary)
+async def cache_summary(content_hash, summary):
+    await redis_client.hset('summaries', content_hash, summary)
 
-def add_user_request(user_id, content_hash):
-    redis_client.sadd(f'user:{user_id}:requests', content_hash)
+async def add_user_request(user_id, content_hash):
+    await redis_client.sadd(f'user:{user_id}:requests', content_hash)
 
-def get_user_requests(user_id):
-    return redis_client.smembers(f'user:{user_id}:requests')
+async def get_user_requests(user_id):
+    return await redis_client.smembers(f'user:{user_id}:requests')
 
-def main():
+async def main():
     try:
+        await init_redis()
         application = ApplicationBuilder().token(telegram_token).build()
         start_handler = CommandHandler('start', handle_start)
         help_handler = CommandHandler('help', handle_help)
@@ -339,4 +344,4 @@ def main():
         print(e)
 
 if __name__ == '__main__':
-    main()
+    asyncio.run(main())
