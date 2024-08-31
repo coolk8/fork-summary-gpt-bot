@@ -3,6 +3,8 @@ import os
 import re
 import trafilatura
 import litellm
+import redis
+import hashlib
 from duckduckgo_search import AsyncDDGS
 from PyPDF2 import PdfReader
 from concurrent.futures import ThreadPoolExecutor
@@ -19,6 +21,9 @@ chunk_size = int(os.environ.get("CHUNK_SIZE", 10000))
 allowed_users = os.environ.get("ALLOWED_USERS", "")
 #os.environ["OPENROUTER_API_KEY"] = os.environ.get("OPENROUTER_API_KEY_ENV", "")
 litellm.set_verbose=True
+
+# Initialize Redis
+redis_client = redis.Redis(host='localhost', port=6379, db=0)
 
 system_prompt ="""
 Do NOT repeat unmodified content.
@@ -198,6 +203,14 @@ async def handle(command, update, context):
             user_input = update.message.text
             print("user_input=", user_input)
 
+            content_hash = get_hash(user_input)
+            cached_summary = get_cached_summary(content_hash)
+
+            if cached_summary:
+                add_user_request(user_id, content_hash)
+                await context.bot.send_message(chat_id=chat_id, text=cached_summary, reply_to_message_id=update.message.message_id, reply_markup=get_inline_keyboard_buttons())
+                return
+
             text_array = process_user_input(user_input)
             print(text_array)
 
@@ -206,6 +219,10 @@ async def handle(command, update, context):
 
             await context.bot.send_chat_action(chat_id=chat_id, action="TYPING")
             summary = summarize(text_array)
+            
+            cache_summary(content_hash, summary)
+            add_user_request(user_id, content_hash)
+
             await context.bot.send_message(chat_id=chat_id, text=f"{summary}", reply_to_message_id=update.message.message_id, reply_markup=get_inline_keyboard_buttons())
         elif command == 'file':
             file_path = f"{update.message.document.file_unique_id}.pdf"
@@ -213,6 +230,15 @@ async def handle(command, update, context):
 
             file = await context.bot.get_file(update.message.document)
             await file.download_to_drive(file_path)
+
+            content_hash = get_hash(file_path)
+            cached_summary = get_cached_summary(content_hash)
+
+            if cached_summary:
+                add_user_request(user_id, content_hash)
+                await context.bot.send_message(chat_id=chat_id, text=cached_summary, reply_to_message_id=update.message.message_id, reply_markup=get_inline_keyboard_buttons())
+                os.remove(file_path)
+                return
 
             text_array = []
             reader = PdfReader(file_path)
@@ -223,6 +249,10 @@ async def handle(command, update, context):
 
             await context.bot.send_chat_action(chat_id=chat_id, action="TYPING")
             summary = summarize(text_array)
+
+            cache_summary(content_hash, summary)
+            add_user_request(user_id, content_hash)
+
             await context.bot.send_message(chat_id=chat_id, text=f"{summary}", reply_to_message_id=update.message.message_id, reply_markup=get_inline_keyboard_buttons())
 
             # remove temp file after sending message
@@ -275,6 +305,21 @@ def get_inline_keyboard_buttons():
         [InlineKeyboardButton("Why It Matters", callback_data="why_it_matters")],
     ]
     return InlineKeyboardMarkup(keyboard)
+
+def get_hash(content):
+    return hashlib.md5(content.encode()).hexdigest()
+
+def get_cached_summary(content_hash):
+    return redis_client.hget('summaries', content_hash)
+
+def cache_summary(content_hash, summary):
+    redis_client.hset('summaries', content_hash, summary)
+
+def add_user_request(user_id, content_hash):
+    redis_client.sadd(f'user:{user_id}:requests', content_hash)
+
+def get_user_requests(user_id):
+    return redis_client.smembers(f'user:{user_id}:requests')
 
 def main():
     try:
