@@ -26,9 +26,9 @@ redis_url = os.environ.get("REDIS_URL", "")
 # Initialize Redis
 redis_client = None
 
-async def init_redis():
+def init_redis():
     global redis_client
-    redis_client = await aioredis.from_url(redis_url)
+    redis_client = aioredis.from_url(redis_url)
 
 system_prompt ="""
 Do NOT repeat unmodified content.
@@ -326,9 +326,9 @@ async def add_user_request(user_id, content_hash):
 async def get_user_requests(user_id):
     return await redis_client.smembers(f'user:{user_id}:requests')
 
-async def main():
+def main():
     try:
-        await init_redis()
+        init_redis()
         application = ApplicationBuilder().token(telegram_token).build()
         start_handler = CommandHandler('start', handle_start)
         help_handler = CommandHandler('help', handle_help)
@@ -345,4 +345,5 @@ async def main():
         print(e)
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    #asyncio.run()
+    main()
