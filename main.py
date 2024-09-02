@@ -21,13 +21,14 @@ chunk_size = int(os.environ.get("CHUNK_SIZE", 10000))
 allowed_users = os.environ.get("ALLOWED_USERS", "")
 #os.environ["OPENROUTER_API_KEY"] = os.environ.get("OPENROUTER_API_KEY_ENV", "")
 litellm.set_verbose=True
+redis_url = os.environ.get("REDIS_URL", "")
 
 # Initialize Redis
 redis_client = None
 
 async def init_redis():
     global redis_client
-    redis_client = await aioredis.from_url("redis://localhost")
+    redis_client = await aioredis.from_url(redis_url)
 
 system_prompt ="""
 Do NOT repeat unmodified content.
