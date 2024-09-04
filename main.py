@@ -315,16 +315,16 @@ def get_hash(content):
     return hashlib.md5(content.encode()).hexdigest()
 
 async def get_cached_summary(content_hash):
-    return await redis_client.hget('summaries', content_hash)
+    return await redis_client.hget('study_buddy_summaries', content_hash)
 
 async def cache_summary(content_hash, summary):
-    await redis_client.hset('summaries', content_hash, summary)
+    await redis_client.hset('study_buddy_summaries', content_hash, summary)
 
 async def add_user_request(user_id, content_hash):
-    await redis_client.sadd(f'user:{user_id}:requests', content_hash)
+    await redis_client.sadd(f'study_buddy_users:{user_id}:requests', content_hash)
 
 async def get_user_requests(user_id):
-    return await redis_client.smembers(f'user:{user_id}:requests')
+    return await redis_client.smembers(f'study_buddy_users:{user_id}:requests')
 
 def main():
     try:
