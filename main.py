@@ -12,6 +12,7 @@ from tqdm import tqdm
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CommandHandler, MessageHandler, CallbackQueryHandler, filters, ApplicationBuilder
 from youtube_transcript_api import YouTubeTranscriptApi
+from pytube import YouTube
 
 telegram_token = os.environ.get("TELEGRAM_TOKEN", "xxx")
 model = os.environ.get("LLM_MODEL", "openrouter/openai/gpt-4o-mini")
@@ -117,6 +118,21 @@ def summarize(text_array):
     except Exception as e:
         print(f"Error: {e}")
         return "Unknown error! Please contact the developer."
+
+def get_youtube_video_info(youtube_url):
+    try:
+        yt = YouTube(youtube_url)
+        video_info = {
+            "title": yt.title,
+            "duration": yt.length,
+            "publish_date": yt.publish_date.strftime("%Y-%m-%d"),
+            "category": yt.category,
+            "views": yt.views,
+        }
+        return video_info
+    except Exception as e:
+        print(f"Error getting video info: {e}")
+        return None
 
 def extract_youtube_transcript(youtube_url):
     try:
@@ -225,10 +241,24 @@ async def handle(command, update, context):
             await context.bot.send_chat_action(chat_id=chat_id, action="TYPING")
             summary = summarize(text_array)
             
+            youtube_pattern = re.compile(r"https?://(www\.|m\.)?(youtube\.com|youtu\.be)/")
+            if youtube_pattern.match(user_input):
+                video_info = get_youtube_video_info(user_input)
+                if video_info:
+                    await cache_youtube_video_info(content_hash, video_info)
+            
             await cache_summary(content_hash, summary)
             await add_user_request(user_id, content_hash)
 
-            await context.bot.send_message(chat_id=chat_id, text=f"{summary}", reply_to_message_id=update.message.message_id, reply_markup=get_inline_keyboard_buttons())
+            response_text = f"{summary}\n\n"
+            if youtube_pattern.match(user_input) and video_info:
+                response_text += f"Название видео: {video_info['title']}\n"
+                response_text += f"Длительность: {video_info['duration']} секунд\n"
+                response_text += f"Дата выхода: {video_info['publish_date']}\n"
+                response_text += f"Тематика: {video_info['category']}\n"
+                response_text += f"Просмотры: {video_info['views']}\n"
+
+            await context.bot.send_message(chat_id=chat_id, text=response_text, reply_to_message_id=update.message.message_id, reply_markup=get_inline_keyboard_buttons())
         elif command == 'file':
             file_path = f"{update.message.document.file_unique_id}.pdf"
             print("file_path=", file_path)
@@ -297,12 +327,14 @@ def process_user_input(user_input):
 
     if youtube_pattern.match(user_input):
         text_array = retrieve_yt_transcript_from_url(user_input)
+        video_info = get_youtube_video_info(user_input)
+        return text_array, video_info
     elif url_pattern.match(user_input):
         text_array = scrape_text_from_url(user_input)
     else:
         text_array = split_user_input(user_input)
 
-    return text_array
+    return text_array, None
 
 def get_inline_keyboard_buttons():
     keyboard = [
@@ -325,6 +357,12 @@ async def add_user_request(user_id, content_hash):
 
 async def get_user_requests(user_id):
     return await redis_client.smembers(f'study_buddy_users:{user_id}:requests')
+
+async def cache_youtube_video_info(content_hash, video_info):
+    await redis_client.hmset(f'study_buddy_youtube_info:{content_hash}', video_info)
+
+async def get_cached_youtube_video_info(content_hash):
+    return await redis_client.hgetall(f'study_buddy_youtube_info:{content_hash}')
 
 def main():
     try:
