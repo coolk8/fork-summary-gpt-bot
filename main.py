@@ -73,7 +73,9 @@ def scrape_text_from_url(url):
         article_content = [text for text in text_chunks if text]
         return article_content
     except Exception as e:
-        print(f"Error: {e}")
+        error_traceback = traceback.format_exc()
+        print(f"Error: {e}\n{error_traceback}")
+
 
 async def search_results(keywords):
     print("Вызвана функция search_results")
@@ -124,7 +126,8 @@ def summarize(text_array):
         else:
             return summarize(summaries)
     except Exception as e:
-        print(f"Error: {e}")
+        error_traceback = traceback.format_exc()
+        print(f"Error: {e}\n{error_traceback}")
         return "Unknown error! Please contact the developer."
 
 def get_youtube_video_info(youtube_url):
@@ -150,11 +153,12 @@ def extract_youtube_transcript(youtube_url):
         if video_id is None:
             return "no transcript"
         transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
-        transcript = transcript_list.find_transcript(['en', 'ja', 'ko', 'de', 'fr', 'ru', 'it', 'es', 'pl', 'uk', 'nl', 'zh-TW', 'zh-CN', 'zh-Hant', 'zh-Hans'])
+        transcript = transcript_list.find_transcript(['en', 'en-US', 'ja', 'ko', 'de', 'fr', 'ru', 'it', 'es', 'pl', 'uk', 'nl', 'zh-TW', 'zh-CN', 'zh-Hant', 'zh-Hans'])
         transcript_text = ' '.join([item['text'] for item in transcript.fetch()])
         return transcript_text
     except Exception as e:
-        print(f"Error: {e}")
+        error_traceback = traceback.format_exc()
+        print(f"Error: {e}\n{error_traceback}")
         return "no transcript"
 
 def retrieve_yt_transcript_from_url(youtube_url):
@@ -196,7 +200,8 @@ def call_gpt_api(prompt, additional_messages=[]):
         message = response.choices[0].message.content.strip()
         return message
     except Exception as e:
-        print(f"Error: {e}")
+        error_traceback = traceback.format_exc()
+        print(f"Error: {e}\n{error_traceback}")
         return ""
 
 def handle_start(update, context):
@@ -331,7 +336,6 @@ async def handle(command, update, context):
     except Exception as e:
         error_traceback = traceback.format_exc()
         print(f"Error: {e}\n{error_traceback}")
-        await context.bot.send_message(chat_id=chat_id, text=f"An error occurred: {str(e)}\n\nTraceback:\n{error_traceback}")
 
 
 def process_user_input(user_input):
