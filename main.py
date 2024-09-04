@@ -231,7 +231,7 @@ async def handle(command, update, context):
                 await context.bot.send_message(chat_id=chat_id, text=cached_summary, reply_to_message_id=update.message.message_id, reply_markup=get_inline_keyboard_buttons())
                 return
 
-            text_array = process_user_input(user_input)
+            text_array, video_info = process_user_input(user_input)
             print(text_array)
 
             if not text_array:
@@ -240,11 +240,8 @@ async def handle(command, update, context):
             await context.bot.send_chat_action(chat_id=chat_id, action="TYPING")
             summary = summarize(text_array)
             
-            youtube_pattern = re.compile(r"https?://(www\.|m\.)?(youtube\.com|youtu\.be)/")
-            if youtube_pattern.match(user_input):
-                video_info = get_youtube_video_info(user_input)
-                if video_info:
-                    await cache_youtube_video_info(content_hash, video_info)
+            if video_info:
+                await cache_youtube_video_info(content_hash, video_info)
             
             await cache_summary(content_hash, summary)
             await add_user_request(user_id, content_hash)
