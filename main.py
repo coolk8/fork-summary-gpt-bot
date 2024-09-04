@@ -24,6 +24,9 @@ allowed_users = os.environ.get("ALLOWED_USERS", "")
 litellm.set_verbose=True
 redis_url = os.environ.get("REDIS_URL", "")
 
+# Define youtube_pattern as a global variable
+youtube_pattern = re.compile(r"https?://(www\.|m\.)?(youtube\.com|youtu\.be)/")
+
 # Initialize Redis
 redis_client = None
 
@@ -319,7 +322,7 @@ async def handle(command, update, context):
 
 
 def process_user_input(user_input):
-    youtube_pattern = re.compile(r"https?://(www\.|m\.)?(youtube\.com|youtu\.be)/")
+    global youtube_pattern
     url_pattern = re.compile(r"https?://")
 
     if youtube_pattern.match(user_input):
