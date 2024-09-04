@@ -251,12 +251,14 @@ async def handle(command, update, context):
             await add_user_request(user_id, content_hash)
 
             response_text = f"{summary}\n\n"
-            if youtube_pattern.match(user_input) and video_info:
-                response_text += f"Название видео: {video_info['title']}\n"
-                response_text += f"Длительность: {video_info['duration']} секунд\n"
-                response_text += f"Дата выхода: {video_info['publish_date']}\n"
-                response_text += f"Тематика: {video_info['category']}\n"
-                response_text += f"Просмотры: {video_info['views']}\n"
+            if youtube_pattern.match(user_input):
+                cached_video_info = await get_cached_youtube_video_info(content_hash)
+                if cached_video_info:
+                    response_text += f"Название видео: {cached_video_info['title']}\n"
+                    response_text += f"Длительность: {cached_video_info['duration']} секунд\n"
+                    response_text += f"Дата выхода: {cached_video_info['publish_date']}\n"
+                    response_text += f"Тематика: {cached_video_info['category']}\n"
+                    response_text += f"Просмотры: {cached_video_info['views']}\n"
 
             await context.bot.send_message(chat_id=chat_id, text=response_text, reply_to_message_id=update.message.message_id, reply_markup=get_inline_keyboard_buttons())
         elif command == 'file':
@@ -359,10 +361,18 @@ async def get_user_requests(user_id):
     return await redis_client.smembers(f'study_buddy_users:{user_id}:requests')
 
 async def cache_youtube_video_info(content_hash, video_info):
-    await redis_client.hmset(f'study_buddy_youtube_info:{content_hash}', video_info)
+    await redis_client.hset(f'study_buddy_youtube_info:{content_hash}', mapping={
+        'title': video_info['title'],
+        'duration': str(video_info['duration']),
+        'publish_date': video_info['publish_date'],
+        'category': video_info['category'],
+        'views': str(video_info['views'])
+    })
 
 async def get_cached_youtube_video_info(content_hash):
-    return await redis_client.hgetall(f'study_buddy_youtube_info:{content_hash}')
+    fields = ['title', 'duration', 'publish_date', 'category', 'views']
+    values = await redis_client.hmget(f'study_buddy_youtube_info:{content_hash}', fields)
+    return dict(zip(fields, values))
 
 def main():
     try:
