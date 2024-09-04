@@ -242,7 +242,8 @@ async def handle(command, update, context):
 
             if cached_summary:
                 await add_user_request(user_id, content_hash)
-                await context.bot.send_message(chat_id=chat_id, text=cached_summary, reply_to_message_id=update.message.message_id, reply_markup=get_inline_keyboard_buttons())
+                decoded_summary = cached_summary.decode('utf-8') if isinstance(cached_summary, bytes) else cached_summary
+                await context.bot.send_message(chat_id=chat_id, text=decoded_summary, reply_to_message_id=update.message.message_id, reply_markup=get_inline_keyboard_buttons())
                 return
 
             text_array, video_info = process_user_input(user_input)
@@ -363,7 +364,8 @@ def get_hash(content):
 
 async def get_cached_summary(content_hash):
     print("Вызвана функция get_cached_summary")
-    return await redis_client.hget('study_buddy_summaries', content_hash)
+    cached = await redis_client.hget('study_buddy_summaries', content_hash)
+    return cached.decode('utf-8') if cached else None
 
 async def cache_summary(content_hash, summary):
     print("Вызвана функция cache_summary")
