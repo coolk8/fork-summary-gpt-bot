@@ -50,6 +50,7 @@ For song lyrics, poems, recipes, sheet music, or short creative content:
 Be helpful without directly copying content."""
 
 def split_user_input(text):
+    print("Вызвана функция split_user_input")
     # Split the input text into paragraphs
     paragraphs = text.split('\n')
 
@@ -62,6 +63,7 @@ def scrape_text_from_url(url):
     """
     Scrape the content from the URL
     """
+    print("Вызвана функция scrape_text_from_url")
     try:
         downloaded = trafilatura.fetch_url(url)
         text = trafilatura.extract(downloaded, include_formatting=True)
@@ -74,6 +76,7 @@ def scrape_text_from_url(url):
         print(f"Error: {e}")
 
 async def search_results(keywords):
+    print("Вызвана функция search_results")
     print(keywords, ddg_region)
     results = await AsyncDDGS().text(keywords, region=ddg_region, safesearch='off', max_results=3)
     return results
@@ -82,8 +85,10 @@ def summarize(text_array):
     """
     Summarize the text using GPT API
     """
+    print("Вызвана функция summarize")
 
     def create_chunks(paragraphs):
+        print("Вызвана функция create_chunks")
         chunks = []
         chunk = ''
         for paragraph in paragraphs:
@@ -123,6 +128,7 @@ def summarize(text_array):
         return "Unknown error! Please contact the developer."
 
 def get_youtube_video_info(youtube_url):
+    print("Вызвана функция get_youtube_video_info")
     try:
         yt = YouTube(youtube_url)
         video_info = {
@@ -137,6 +143,7 @@ def get_youtube_video_info(youtube_url):
         return None
 
 def extract_youtube_transcript(youtube_url):
+    print("Вызвана функция extract_youtube_transcript")
     try:
         video_id_match = re.search(r"(?<=v=)[^&]+|(?<=youtu.be/)[^?|\n]+", youtube_url)
         video_id = video_id_match.group(0) if video_id_match else None
@@ -151,6 +158,7 @@ def extract_youtube_transcript(youtube_url):
         return "no transcript"
 
 def retrieve_yt_transcript_from_url(youtube_url):
+    print("Вызвана функция retrieve_yt_transcript_from_url")
     output = extract_youtube_transcript(youtube_url)
     if output == 'no transcript':
         raise ValueError("There's no valid transcript in this video.")
@@ -175,6 +183,7 @@ def call_gpt_api(prompt, additional_messages=[]):
     """
     Call GPT API
     """
+    print("Вызвана функция call_gpt_api")
     try:
         response = litellm.completion(
         # response = openai.ChatCompletion.create(
@@ -322,6 +331,7 @@ async def handle(command, update, context):
 
 
 def process_user_input(user_input):
+    print("Вызвана функция process_user_input")
     global youtube_pattern
     url_pattern = re.compile(r"https?://")
 
@@ -337,6 +347,7 @@ def process_user_input(user_input):
     return text_array, None
 
 def get_inline_keyboard_buttons():
+    print("Вызвана функция get_inline_keyboard_buttons")
     keyboard = [
         [InlineKeyboardButton("Explore Similar", callback_data="explore_similar")],
         [InlineKeyboardButton("Why It Matters", callback_data="why_it_matters")],
@@ -344,21 +355,27 @@ def get_inline_keyboard_buttons():
     return InlineKeyboardMarkup(keyboard)
 
 def get_hash(content):
+    print("Вызвана функция get_hash")
     return hashlib.md5(content.encode()).hexdigest()
 
 async def get_cached_summary(content_hash):
+    print("Вызвана функция get_cached_summary")
     return await redis_client.hget('study_buddy_summaries', content_hash)
 
 async def cache_summary(content_hash, summary):
+    print("Вызвана функция cache_summary")
     await redis_client.hset('study_buddy_summaries', content_hash, summary)
 
 async def add_user_request(user_id, content_hash):
+    print("Вызвана функция add_user_request")
     await redis_client.sadd(f'study_buddy_users:{user_id}:requests', content_hash)
 
 async def get_user_requests(user_id):
+    print("Вызвана функция get_user_requests")
     return await redis_client.smembers(f'study_buddy_users:{user_id}:requests')
 
 async def cache_youtube_video_info(content_hash, video_info):
+    print("Вызвана функция cache_youtube_video_info")
     await redis_client.hset(f'study_buddy_youtube_info:{content_hash}', mapping={
         'title': video_info['title'],
         'duration': str(video_info['duration']),
@@ -367,6 +384,7 @@ async def cache_youtube_video_info(content_hash, video_info):
     })
 
 async def get_cached_youtube_video_info(content_hash):
+    print("Вызвана функция get_cached_youtube_video_info")
     fields = ['title', 'duration', 'publish_date', 'views']
     values = await redis_client.hmget(f'study_buddy_youtube_info:{content_hash}', fields)
     return dict(zip(fields, values))
