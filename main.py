@@ -214,6 +214,8 @@ def handle_file(update, context):
 def handle_button_click(update, context):
     return handle('button_click', update, context)
 
+import traceback
+
 async def handle(command, update, context):
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
@@ -326,8 +328,9 @@ async def handle(command, update, context):
                 ])
                 await context.bot.send_message(chat_id=chat_id, text=result, reply_to_message_id=update.callback_query.message.message_id)
     except Exception as e:
-        print(f"Error: {e}")
-        await context.bot.send_message(chat_id=chat_id, text=str(e))
+        error_traceback = traceback.format_exc()
+        print(f"Error: {e}\n{error_traceback}")
+        await context.bot.send_message(chat_id=chat_id, text=f"An error occurred: {str(e)}\n\nTraceback:\n{error_traceback}")
 
 
 def process_user_input(user_input):
