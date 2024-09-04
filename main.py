@@ -12,7 +12,7 @@ from tqdm import tqdm
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CommandHandler, MessageHandler, CallbackQueryHandler, filters, ApplicationBuilder
 from youtube_transcript_api import YouTubeTranscriptApi
-from pytube import YouTube
+from pytubefix import YouTube
 
 telegram_token = os.environ.get("TELEGRAM_TOKEN", "xxx")
 model = os.environ.get("LLM_MODEL", "openrouter/openai/gpt-4o-mini")
@@ -125,8 +125,7 @@ def get_youtube_video_info(youtube_url):
         video_info = {
             "title": yt.title,
             "duration": yt.length,
-            "publish_date": yt.publish_date.strftime("%Y-%m-%d"),
-            "category": yt.category,
+            "publish_date": yt.publish_date.strftime("%Y-%m-%d"),            
             "views": yt.views,
         }
         return video_info
@@ -257,7 +256,6 @@ async def handle(command, update, context):
                     response_text += f"Название видео: {cached_video_info['title']}\n"
                     response_text += f"Длительность: {cached_video_info['duration']} секунд\n"
                     response_text += f"Дата выхода: {cached_video_info['publish_date']}\n"
-                    response_text += f"Тематика: {cached_video_info['category']}\n"
                     response_text += f"Просмотры: {cached_video_info['views']}\n"
 
             await context.bot.send_message(chat_id=chat_id, text=response_text, reply_to_message_id=update.message.message_id, reply_markup=get_inline_keyboard_buttons())
@@ -365,12 +363,11 @@ async def cache_youtube_video_info(content_hash, video_info):
         'title': video_info['title'],
         'duration': str(video_info['duration']),
         'publish_date': video_info['publish_date'],
-        'category': video_info['category'],
         'views': str(video_info['views'])
     })
 
 async def get_cached_youtube_video_info(content_hash):
-    fields = ['title', 'duration', 'publish_date', 'category', 'views']
+    fields = ['title', 'duration', 'publish_date', 'views']
     values = await redis_client.hmget(f'study_buddy_youtube_info:{content_hash}', fields)
     return dict(zip(fields, values))
 

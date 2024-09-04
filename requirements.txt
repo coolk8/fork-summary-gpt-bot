@@ -2,10 +2,10 @@
 asyncio==3.4.3
 
 # progress tracking
-tqdm==4.66.4
+tqdm==4.66.5
 
 # llm adapter
-litellm==1.37.9
+litellm==1.44.7
 
 # text extraction
 trafilatura==1.9.0 
@@ -21,4 +21,4 @@ python-telegram-bot==21.1.1
 
 # YouTube
 youtube_transcript_api==0.6.2
-pytube==15.0.0
+pytubefix==6.15.1
