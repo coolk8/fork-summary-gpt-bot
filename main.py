@@ -3,7 +3,7 @@ import os
 import re
 import trafilatura
 import litellm
-import aioredis
+from redis import asyncio as aioredis
 import hashlib
 from duckduckgo_search import AsyncDDGS
 from PyPDF2 import PdfReader
@@ -120,7 +120,7 @@ def summarize(text_array):
         if len(summaries) <= 5:
             summary = ' '.join(summaries)
             with tqdm(total=1, desc="Final summarization") as progress_bar:
-                final_summary = call_gpt_api(f"Create a bulleted list to show the main 3 key points of the following text:\n{summary}", system_messages)
+                final_summary = call_gpt_api(f"Create a bulleted list to show the main 3 key points of the following text in short sentences:\n{summary}", system_messages)
                 progress_bar.update(1)
             return final_summary
         else:
