@@ -23,6 +23,7 @@ allowed_users = os.environ.get("ALLOWED_USERS", "")
 #os.environ["OPENROUTER_API_KEY"] = os.environ.get("OPENROUTER_API_KEY_ENV", "")
 litellm.set_verbose=True
 redis_url = os.environ.get("REDIS_URL", "")
+zyte_api_key = os.environ.get("ZYTE_API_KEY", "")
 
 # Define youtube_pattern as a global variable
 youtube_pattern = re.compile(r"https?://(www\.|m\.)?(youtube\.com|youtu\.be)/")
@@ -39,7 +40,7 @@ Do NOT repeat unmodified content.
 Do NOT mention anything like "Here is the summary:" or "Here is a summary of the video in 2-3 sentences:" etc.
 User will only give you youtube video subtitles, For summarizing YouTube video subtitles:
 - No word limit on summaries.
-- Use Telegram markdowns for better formatting: **bold**, *italic*, `monospace`, ~~strike~~, <u>underline</u>, <pre language="c++">code</pre>.
+- Use Telegram HTML for better formatting: <b>bold<b>, <i>italic</i>
 - Try to cover every concept that are covered in the subtitles.
 
 For song lyrics, poems, recipes, sheet music, or short creative content:
@@ -152,7 +153,7 @@ def extract_youtube_transcript(youtube_url):
         video_id = video_id_match.group(0) if video_id_match else None
         if video_id is None:
             return "no transcript"
-        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id, proxies={"http": f"http://{zyte_api_key}:@api.zyte.com:8011/","https": f"http://{zyte_api_key}:@api.zyte.com:8011/",})
         transcript = transcript_list.find_transcript(['en', 'en-US', 'ja', 'ko', 'de', 'fr', 'ru', 'it', 'es', 'pl', 'uk', 'nl', 'zh-TW', 'zh-CN', 'zh-Hant', 'zh-Hans'])
         transcript_text = ' '.join([item['text'] for item in transcript.fetch()])
         return transcript_text
@@ -275,7 +276,7 @@ async def handle(command, update, context):
                     response_text += f"Дата выхода: {cached_video_info['publish_date']}\n"
                     response_text += f"Просмотры: {cached_video_info['views']}\n"
 
-            await context.bot.send_message(chat_id=chat_id, text=response_text, reply_to_message_id=update.message.message_id, reply_markup=get_inline_keyboard_buttons())
+            await context.bot.send_message(chat_id=chat_id, text=response_text, reply_to_message_id=update.message.message_id, parse_mode="HTML")
         elif command == 'file':
             file_path = f"{update.message.document.file_unique_id}.pdf"
             print("file_path=", file_path)
@@ -288,7 +289,7 @@ async def handle(command, update, context):
 
             if cached_summary:
                 add_user_request(user_id, content_hash)
-                await context.bot.send_message(chat_id=chat_id, text=cached_summary, reply_to_message_id=update.message.message_id, reply_markup=get_inline_keyboard_buttons())
+                await context.bot.send_message(chat_id=chat_id, text=cached_summary, reply_to_message_id=update.message.message_id, parse_mode="HTML")
                 os.remove(file_path)
                 return
 
@@ -305,7 +306,7 @@ async def handle(command, update, context):
             cache_summary(content_hash, summary)
             add_user_request(user_id, content_hash)
 
-            await context.bot.send_message(chat_id=chat_id, text=f"{summary}", reply_to_message_id=update.message.message_id, reply_markup=get_inline_keyboard_buttons())
+            await context.bot.send_message(chat_id=chat_id, text=f"{summary}", reply_to_message_id=update.message.message_id, parse_mode="HTML")
 
             # remove temp file after sending message
             os.remove(file_path)
