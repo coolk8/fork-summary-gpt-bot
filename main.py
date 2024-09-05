@@ -368,12 +368,12 @@ def get_hash(content):
 
 async def get_cached_summary(content_hash):
     print("Вызвана функция get_cached_summary")
-    cached = await redis_client.hget('study_buddy_summaries', content_hash)
+    cached = await redis_client.hget(f'study_buddy_youtube_info:{content_hash}', 'summary')
     return cached.decode('utf-8') if cached else None
 
 async def cache_summary(content_hash, summary):
     print("Вызвана функция cache_summary")
-    await redis_client.hset('study_buddy_summaries', content_hash, summary)
+    await redis_client.hset(f'study_buddy_youtube_info:{content_hash}', 'summary', summary)
 
 async def add_user_request(user_id, content_hash):
     print("Вызвана функция add_user_request")
@@ -394,7 +394,7 @@ async def cache_youtube_video_info(content_hash, video_info):
 
 async def get_cached_youtube_video_info(content_hash):
     print("Вызвана функция get_cached_youtube_video_info")
-    fields = ['title', 'duration', 'publish_date', 'views']
+    fields = ['title', 'duration', 'publish_date', 'views', 'summary']
     values = await redis_client.hmget(f'study_buddy_youtube_info:{content_hash}', fields)
     return dict(zip(fields, values))
 
