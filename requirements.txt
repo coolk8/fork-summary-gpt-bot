@@ -22,3 +22,6 @@ python-telegram-bot==21.1.1
 # YouTube
 youtube_transcript_api==0.6.2
 pytubefix==6.15.1
+
+# DB
+redis==4.6.0
