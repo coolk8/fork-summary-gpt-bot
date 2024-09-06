@@ -39,9 +39,9 @@ system_prompt ="""
 Do NOT repeat unmodified content.
 Do NOT mention anything like "Here is the summary:" or "Here is a summary of the video in 2-3 sentences:" etc.
 User will only give you youtube video subtitles, For summarizing YouTube video subtitles:
-- Be short.
-- Use Telegram HTML for better formatting: <b>bold<b>, <i>italic</i>
+- Write a list with 3 main key points of the following text in short sentences. Start list with -.
 - Try to cover every concept that are covered in the subtitles.
+- DO NOT use any formatting like Markdown, HTML etc.
 
 Be helpful without directly copying content."""
 
@@ -121,7 +121,7 @@ def summarize(text_array):
         if len(summaries) <= 5:
             summary = ' '.join(summaries)
             with tqdm(total=1, desc="Final summarization") as progress_bar:
-                final_summary = call_gpt_api(f"Create a list to show the main 3 key points of the following text in short sentences using Telegram HTML for better formatting: <b>bold<b>, <i>italic</i>:\n{summary}", system_messages)
+                final_summary = call_gpt_api(f"{summary}", system_messages)
                 progress_bar.update(1)
             return final_summary if final_summary else "no key points"
         else:
@@ -250,10 +250,11 @@ async def handle(command, update, context):
 
             if cached_data and 'summary' in cached_data:
                 await add_user_request(user_id, content_hash)
-                response_text = f"{cached_data['summary']}\n\n"
+                response_text = f"<b>Key ideas: </b>\n{cached_data['summary']}\n"
                 if youtube_pattern.match(user_input):
-                    response_text += construct_video_info_text(cached_data)
-                await context.bot.send_message(chat_id=chat_id, text=response_text, reply_to_message_id=update.message.message_id, reply_markup=get_inline_keyboard_buttons(), parse_mode="HTML")
+                    text = construct_video_info_text(cached_data) + response_text
+                    response_text = text 
+                await context.bot.send_message(chat_id=chat_id, text=response_text, reply_to_message_id=update.message.message_id, disable_web_page_preview = True, parse_mode="HTML")
                 return
 
             try:
@@ -269,11 +270,12 @@ async def handle(command, update, context):
                 await cache_data(content_hash, summary, video_info)
                 await add_user_request(user_id, content_hash)
 
-                response_text = f"{summary}\n\n"
+                response_text = f"<b>Key ideas: </b>\n{summary}\n"
                 if youtube_pattern.match(user_input):
-                    response_text += construct_video_info_text(video_info)
+                    text = construct_video_info_text(video_info) + response_text
+                    response_text = text
 
-                await context.bot.send_message(chat_id=chat_id, text=response_text, reply_to_message_id=update.message.message_id, parse_mode="HTML")
+                await context.bot.send_message(chat_id=chat_id, text=response_text, reply_to_message_id=update.message.message_id, parse_mode="HTML",disable_web_page_preview = True)
             except ValueError as e:
                 error_message = str(e)
                 if error_message == "Please try again":
@@ -294,7 +296,7 @@ async def handle(command, update, context):
 
             if cached_summary:
                 add_user_request(user_id, content_hash)
-                await context.bot.send_message(chat_id=chat_id, text=cached_summary, reply_to_message_id=update.message.message_id, parse_mode="HTML")
+                await context.bot.send_message(chat_id=chat_id, text=cached_summary, reply_to_message_id=update.message.message_id, parse_mode="HTML",disable_web_page_preview = True)
                 os.remove(file_path)
                 return
 
@@ -311,7 +313,7 @@ async def handle(command, update, context):
             cache_summary(content_hash, summary)
             add_user_request(user_id, content_hash)
 
-            await context.bot.send_message(chat_id=chat_id, text=f"{summary}", reply_to_message_id=update.message.message_id, parse_mode="HTML")
+            await context.bot.send_message(chat_id=chat_id, text=f"{summary}", reply_to_message_id=update.message.message_id, parse_mode="HTML", disable_web_page_preview = True)
 
             # remove temp file after sending message
             os.remove(file_path)
@@ -338,7 +340,7 @@ async def handle(command, update, context):
                 result = call_gpt_api(f"{original_message_text}\nBased on the content above, tell me why it matters as an expert.", [
                     {"role": "system", "content": f"You will show the result in English."}
                 ])
-                await context.bot.send_message(chat_id=chat_id, text=result, reply_to_message_id=update.callback_query.message.message_id)
+                await context.bot.send_message(chat_id=chat_id, text=result, reply_to_message_id=update.callback_query.message.message_id, disable_web_page_preview = True)
     except Exception as e:
         error_traceback = traceback.format_exc()
         print(f"Error: {e}\n{error_traceback}")
@@ -409,7 +411,7 @@ def construct_video_info_text(video_info):
     if video_info:
         if 'author' in video_info:
             response_text += f"<b>Author: </b>{video_info['author']}\n"
-        if '<title' in video_info:
+        if 'title' in video_info:
             response_text += f"<b>Title: </b>{video_info['title']}\n"
         if 'duration' in video_info:
             response_text += f"<b>Duration: </b>{video_info['duration']} seconds\n"
