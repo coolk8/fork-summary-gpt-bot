@@ -140,7 +140,7 @@ def get_youtube_video_info(youtube_url):
         return video_info
     except Exception as e:
         print(f"Error getting video info: {e}")
-        return None
+        raise ValueError("Failed to get YouTube video info")
 
 def extract_youtube_transcript(youtube_url):
     print("Вызвана функция extract_youtube_transcript")
@@ -148,7 +148,7 @@ def extract_youtube_transcript(youtube_url):
         video_id_match = re.search(r"(?<=v=)[^&]+|(?<=youtu.be/)[^?|\n]+", youtube_url)
         video_id = video_id_match.group(0) if video_id_match else None
         if video_id is None:
-            return "no transcript"
+            raise ValueError("Invalid YouTube URL")
         transcript_list = YouTubeTranscriptApi.list_transcripts(video_id, proxies={"http": f"http://{zyte_api_key}:@api.zyte.com:8011/","https": f"http://{zyte_api_key}:@api.zyte.com:8011/",})
         transcript = transcript_list.find_transcript(['en', 'en-US', 'ja', 'ko', 'de', 'fr', 'ru', 'it', 'es', 'pl', 'uk', 'nl', 'zh-TW', 'zh-CN', 'zh-Hant', 'zh-Hans'])
         transcript_text = ' '.join([item['text'] for item in transcript.fetch()])
@@ -156,13 +156,11 @@ def extract_youtube_transcript(youtube_url):
     except Exception as e:
         error_traceback = traceback.format_exc()
         print(f"Error: {e}\n{error_traceback}")
-        return "no transcript"
+        raise ValueError("Failed to extract YouTube transcript")
 
 def retrieve_yt_transcript_from_url(youtube_url):
     print("Вызвана функция retrieve_yt_transcript_from_url")
     output = extract_youtube_transcript(youtube_url)
-    if output == 'no transcript':
-        raise ValueError("There's no valid transcript in this video.")
     # Split output into an array based on the end of the sentence (like a dot),
     # but each chunk should be smaller than chunk_size
     output_sentences = output.split(' ')
@@ -250,23 +248,29 @@ async def handle(command, update, context):
                 await context.bot.send_message(chat_id=chat_id, text=response_text, reply_to_message_id=update.message.message_id, reply_markup=get_inline_keyboard_buttons(), parse_mode="HTML")
                 return
 
-            text_array, video_info = process_user_input(user_input)
-            print(text_array)
+            try:
+                text_array, video_info = process_user_input(user_input)
+                print(text_array)
 
-            if not text_array:
-                raise ValueError("No content found to summarize.")
+                if not text_array:
+                    raise ValueError("No content found to summarize.")
 
-            await context.bot.send_chat_action(chat_id=chat_id, action="TYPING")
-            summary = summarize(text_array)
-            
-            await cache_data(content_hash, summary, video_info)
-            await add_user_request(user_id, content_hash)
+                await context.bot.send_chat_action(chat_id=chat_id, action="TYPING")
+                summary = summarize(text_array)
+                
+                await cache_data(content_hash, summary, video_info)
+                await add_user_request(user_id, content_hash)
 
-            response_text = f"{summary}\n\n"
-            if youtube_pattern.match(user_input):
-                response_text += construct_video_info_text(video_info)
+                response_text = f"{summary}\n\n"
+                if youtube_pattern.match(user_input):
+                    response_text += construct_video_info_text(video_info)
 
-            await context.bot.send_message(chat_id=chat_id, text=response_text, reply_to_message_id=update.message.message_id, parse_mode="HTML")
+                await context.bot.send_message(chat_id=chat_id, text=response_text, reply_to_message_id=update.message.message_id, parse_mode="HTML")
+            except ValueError as e:
+                if str(e) == "Please try again":
+                    await context.bot.send_message(chat_id=chat_id, text="Please try again", reply_to_message_id=update.message.message_id)
+                else:
+                    raise
         elif command == 'file':
             file_path = f"{update.message.document.file_unique_id}.pdf"
             print("file_path=", file_path)
@@ -335,9 +339,13 @@ def process_user_input(user_input):
     url_pattern = re.compile(r"https?://")
 
     if youtube_pattern.match(user_input):
-        text_array = retrieve_yt_transcript_from_url(user_input)
-        video_info = get_youtube_video_info(user_input)
-        return text_array, video_info
+        try:
+            text_array = retrieve_yt_transcript_from_url(user_input)
+            video_info = get_youtube_video_info(user_input)
+            return text_array, video_info
+        except ValueError as e:
+            print(f"Error processing YouTube input: {e}")
+            raise ValueError("Please try again")
     elif url_pattern.match(user_input):
         text_array = scrape_text_from_url(user_input)
     else:
