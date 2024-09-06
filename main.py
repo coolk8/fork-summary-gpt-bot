@@ -412,8 +412,8 @@ async def cache_data(content_hash, summary, video_info=None):
     print("Вызвана функция cache_data")
     data = {'summary': summary}
     if video_info:
-        data.update(video_info)
-    await redis_client.hset(f'study_buddy_youtube_info:{content_hash}', data)
+        data.update({k: str(v) for k, v in video_info.items()})
+    await redis_client.hset(f'study_buddy_youtube_info:{content_hash}', mapping=data)
 
 def main():
     try:
