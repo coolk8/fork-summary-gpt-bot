@@ -8,6 +8,7 @@ RUN apt-get update && \
 FROM build AS build-venv
 
 COPY requirements.txt /requirements.txt
+COPY cacert.crt /cacert.crt
 RUN /venv/bin/pip install --disable-pip-version-check -r /requirements.txt
 
 FROM gcr.io/distroless/python3-debian11:nonroot
