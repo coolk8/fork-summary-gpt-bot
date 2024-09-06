@@ -374,21 +374,16 @@ async def get_user_requests(user_id):
     print("Вызвана функция get_user_requests")
     return await redis_client.smembers(f'study_buddy_users:{user_id}:requests')
 
-async def cache_youtube_video_info(content_hash, video_info):
-    print("Вызвана функция cache_youtube_video_info")
-    await redis_client.hset(f'study_buddy_youtube_info:{content_hash}', mapping={
-        'author': video_info['author'],
-        'title': video_info['title'],
-        'duration': str(video_info['duration']),
-        'publish_date': video_info['publish_date'],
-        'description': str(video_info['description'])
-    })
 
-async def get_cached_youtube_video_info(content_hash):
-    print("Вызвана функция get_cached_youtube_video_info")
+async def get_cached_data(content_hash):
+    print("Вызвана функция get_cached_data")
     fields = ['author', 'title', 'duration', 'publish_date', 'description', 'summary']
     values = await redis_client.hmget(f'study_buddy_youtube_info:{content_hash}', fields)
-    return dict(zip(fields, values))
+    result = {}
+    for field, value in zip(fields, values):
+        if value:
+            result[field] = value.decode('utf-8') if isinstance(value, bytes) else value
+    return result
 
 def main():
     try:
