@@ -39,14 +39,9 @@ system_prompt ="""
 Do NOT repeat unmodified content.
 Do NOT mention anything like "Here is the summary:" or "Here is a summary of the video in 2-3 sentences:" etc.
 User will only give you youtube video subtitles, For summarizing YouTube video subtitles:
-- No word limit on summaries.
+- Be short.
 - Use Telegram HTML for better formatting: <b>bold<b>, <i>italic</i>
 - Try to cover every concept that are covered in the subtitles.
-
-For song lyrics, poems, recipes, sheet music, or short creative content:
-- Do NOT repeat the full content verbatim.
-- This restriction applies even for transformations or translations.
-- Provide short snippets, high-level summaries, analysis, or commentary.
 
 Be helpful without directly copying content."""
 
@@ -114,14 +109,14 @@ def summarize(text_array):
             {"role": "system", "content": f"{system_prompt}"}
         ]
         with ThreadPoolExecutor() as executor:
-            futures = [executor.submit(call_gpt_api, f"Summary keypoints for the following text:\n{chunk}", system_messages) for chunk in text_chunks]
+            futures = [executor.submit(call_gpt_api, f"{chunk}", system_messages) for chunk in text_chunks]
             for future in tqdm(futures, total=len(text_chunks), desc="Summarizing"):
                 summaries.append(future.result())
 
         if len(summaries) <= 5:
             summary = ' '.join(summaries)
             with tqdm(total=1, desc="Final summarization") as progress_bar:
-                final_summary = call_gpt_api(f"Create a bulleted list to show the main 3 key points of the following text in short sentences:\n{summary}", system_messages)
+                final_summary = call_gpt_api(f"Create a list to show the main 3 key points of the following text in short sentences using Telegram HTML for better formatting: <b>bold<b>, <i>italic</i>:\n{summary}", system_messages)
                 progress_bar.update(1)
             return final_summary
         else:
@@ -136,10 +131,11 @@ def get_youtube_video_info(youtube_url):
     try:
         yt = YouTube(youtube_url)
         video_info = {
+            "author": yt.author,
             "title": yt.title,
             "duration": yt.length,
             "publish_date": yt.publish_date.strftime("%Y-%m-%d"),            
-            "views": yt.views,
+            "description": yt.description,
         }
         return video_info
     except Exception as e:
@@ -271,12 +267,13 @@ async def handle(command, update, context):
             if youtube_pattern.match(user_input):
                 cached_video_info = await get_cached_youtube_video_info(content_hash)
                 if cached_video_info:
-                    response_text += f"Название видео: {cached_video_info['title']}\n"
-                    response_text += f"Длительность: {cached_video_info['duration']} секунд\n"
-                    response_text += f"Дата выхода: {cached_video_info['publish_date']}\n"
-                    response_text += f"Просмотры: {cached_video_info['views']}\n"
+                    response_text += f"Author: {cached_video_info['author']}\n"
+                    response_text += f"Title: {cached_video_info['title']}\n"
+                    response_text += f"Duration: {cached_video_info['duration']} seconds\n"
+                    response_text += f"Publish date: {cached_video_info['publish_date']}\n"
+                    response_text += f"Description: {cached_video_info['description']}\n"
 
-            await context.bot.send_message(chat_id=chat_id, text=response_text, reply_to_message_id=update.message.message_id, parse_mode="HTML")
+            await context.bot.send_message(chat_id=chat_id, text=response_text.decode('utf-8'), reply_to_message_id=update.message.message_id, parse_mode="HTML")
         elif command == 'file':
             file_path = f"{update.message.document.file_unique_id}.pdf"
             print("file_path=", file_path)
@@ -387,15 +384,16 @@ async def get_user_requests(user_id):
 async def cache_youtube_video_info(content_hash, video_info):
     print("Вызвана функция cache_youtube_video_info")
     await redis_client.hset(f'study_buddy_youtube_info:{content_hash}', mapping={
+        'author': video_info['author'],
         'title': video_info['title'],
         'duration': str(video_info['duration']),
         'publish_date': video_info['publish_date'],
-        'views': str(video_info['views'])
+        'description': str(video_info['description'])
     })
 
 async def get_cached_youtube_video_info(content_hash):
     print("Вызвана функция get_cached_youtube_video_info")
-    fields = ['title', 'duration', 'publish_date', 'views', 'summary']
+    fields = ['author', 'title', 'duration', 'publish_date', 'description', 'summary']
     values = await redis_client.hmget(f'study_buddy_youtube_info:{content_hash}', fields)
     return dict(zip(fields, values))
 
