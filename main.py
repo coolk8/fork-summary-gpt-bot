@@ -111,20 +111,25 @@ def summarize(text_array):
         with ThreadPoolExecutor() as executor:
             futures = [executor.submit(call_gpt_api, f"{chunk}", system_messages) for chunk in text_chunks]
             for future in tqdm(futures, total=len(text_chunks), desc="Summarizing"):
-                summaries.append(future.result())
+                summary = future.result()
+                if summary:  # Check if summary is not empty
+                    summaries.append(summary)
+
+        if not summaries:
+            return "no key points"
 
         if len(summaries) <= 5:
             summary = ' '.join(summaries)
             with tqdm(total=1, desc="Final summarization") as progress_bar:
                 final_summary = call_gpt_api(f"Create a list to show the main 3 key points of the following text in short sentences using Telegram HTML for better formatting: <b>bold<b>, <i>italic</i>:\n{summary}", system_messages)
                 progress_bar.update(1)
-            return final_summary
+            return final_summary if final_summary else "no key points"
         else:
             return summarize(summaries)
     except Exception as e:
         error_traceback = traceback.format_exc()
         print(f"Error: {e}\n{error_traceback}")
-        return "Unknown error! Please contact the developer."
+        return "no key points"
 
 def get_youtube_video_info(youtube_url):
     print("Вызвана функция get_youtube_video_info")
