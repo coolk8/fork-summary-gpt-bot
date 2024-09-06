@@ -240,12 +240,14 @@ async def handle(command, update, context):
             print("user_input=", user_input)
 
             content_hash = get_hash(user_input)
-            cached_summary = await get_cached_summary(content_hash)
+            cached_data = await get_cached_data(content_hash)
 
-            if cached_summary:
+            if cached_data and 'summary' in cached_data:
                 await add_user_request(user_id, content_hash)
-                decoded_summary = cached_summary.decode('utf-8') if isinstance(cached_summary, bytes) else cached_summary
-                await context.bot.send_message(chat_id=chat_id, text=decoded_summary, reply_to_message_id=update.message.message_id, reply_markup=get_inline_keyboard_buttons())
+                response_text = f"{cached_data['summary']}\n\n"
+                if youtube_pattern.match(user_input):
+                    response_text += construct_video_info_text(cached_data)
+                await context.bot.send_message(chat_id=chat_id, text=response_text, reply_to_message_id=update.message.message_id, reply_markup=get_inline_keyboard_buttons(), parse_mode="HTML")
                 return
 
             text_array, video_info = process_user_input(user_input)
@@ -257,23 +259,14 @@ async def handle(command, update, context):
             await context.bot.send_chat_action(chat_id=chat_id, action="TYPING")
             summary = summarize(text_array)
             
-            if video_info:
-                await cache_youtube_video_info(content_hash, video_info)
-            
-            await cache_summary(content_hash, summary)
+            await cache_data(content_hash, summary, video_info)
             await add_user_request(user_id, content_hash)
 
             response_text = f"{summary}\n\n"
             if youtube_pattern.match(user_input):
-                cached_video_info = await get_cached_youtube_video_info(content_hash)
-                if cached_video_info:
-                    response_text += f"Author: {cached_video_info['author']}\n"
-                    response_text += f"Title: {cached_video_info['title']}\n"
-                    response_text += f"Duration: {cached_video_info['duration']} seconds\n"
-                    response_text += f"Publish date: {cached_video_info['publish_date']}\n"
-                    response_text += f"Description: {cached_video_info['description']}\n"
+                response_text += construct_video_info_text(video_info)
 
-            await context.bot.send_message(chat_id=chat_id, text=response_text.decode('utf-8'), reply_to_message_id=update.message.message_id, parse_mode="HTML")
+            await context.bot.send_message(chat_id=chat_id, text=response_text, reply_to_message_id=update.message.message_id, parse_mode="HTML")
         elif command == 'file':
             file_path = f"{update.message.document.file_unique_id}.pdf"
             print("file_path=", file_path)
@@ -418,3 +411,24 @@ def main():
 if __name__ == '__main__':
     #asyncio.run()
     main()
+def construct_video_info_text(video_info):
+    response_text = ""
+    if video_info:
+        if 'author' in video_info:
+            response_text += f"Author: {video_info['author']}\n"
+        if 'title' in video_info:
+            response_text += f"Title: {video_info['title']}\n"
+        if 'duration' in video_info:
+            response_text += f"Duration: {video_info['duration']} seconds\n"
+        if 'publish_date' in video_info:
+            response_text += f"Publish date: {video_info['publish_date']}\n"
+        if 'description' in video_info:
+            response_text += f"Description: {video_info['description']}\n"
+    return response_text
+
+async def cache_data(content_hash, summary, video_info=None):
+    print("Вызвана функция cache_data")
+    data = {'summary': summary}
+    if video_info:
+        data.update(video_info)
+    await redis_client.hmset(f'study_buddy_youtube_info:{content_hash}', data)
