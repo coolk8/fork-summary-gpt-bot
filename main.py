@@ -401,11 +401,11 @@ def construct_video_info_text(video_info):
         if '<title' in video_info:
             response_text += f"<b>Title: </b>{video_info['title']}\n"
         if 'duration' in video_info:
-            response_text += f"<b>Duration: </b>,{video_info['duration']} seconds\n"
+            response_text += f"<b>Duration: </b>{video_info['duration']} seconds\n"
         if 'publish_date' in video_info:
-            response_text += f"<b>Publish date: </b>,{video_info['publish_date']}\n"
+            response_text += f"<b>Publish date: </b>{video_info['publish_date']}\n"
         if 'description' in video_info:
-            response_text += f"<b>Description: </b>,<blockquote expandable> {video_info['description']}</blockquote>\n"
+            response_text += f"<b>Description: </b><blockquote expandable> {video_info['description']}</blockquote>\n"
     return response_text
 
 async def cache_data(content_hash, summary, video_info=None):
