@@ -28,6 +28,7 @@ zyte_api_key = os.environ.get("ZYTE_API_KEY", "")
 # Define youtube_pattern as a global variable
 youtube_pattern = re.compile(r"https?://(www\.|m\.)?(youtube\.com|youtu\.be)/")
 
+
 # Initialize Redis
 redis_client = None
 
