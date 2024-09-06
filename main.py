@@ -35,15 +35,15 @@ def init_redis():
     global redis_client
     redis_client = aioredis.from_url(redis_url)
 
-system_prompt ="""
-Do NOT repeat unmodified content.
-Do NOT mention anything like "Here is the summary:" or "Here is a summary of the video in 2-3 sentences:" etc.
-User will only give you youtube video subtitles, For summarizing YouTube video subtitles:
-- Write a list with 3 main key points of the following text in short sentences. Start list with -.
-- Try to cover every concept that are covered in the subtitles.
-- DO NOT use any formatting like Markdown, HTML etc.
+system_prompt =os.environ.get("SUMMARY_LLM_PROMPT", """
+    Do NOT repeat unmodified content.
+    Do NOT mention anything like "Here is the summary:" or "Here is a summary of the video in 2-3 sentences:" etc.
+    User will only give you youtube video subtitles, For summarizing YouTube video subtitles:
+    - Write a list with 3 main key points of the following text in short sentences. Start list with -.
+    - Try to cover every concept that are covered in the subtitles.
+    - DO NOT use any formatting like Markdown, HTML etc.
 
-Be helpful without directly copying content."""
+    Be helpful without directly copying content.""")
 
 def split_user_input(text):
     print("Вызвана функция split_user_input")
