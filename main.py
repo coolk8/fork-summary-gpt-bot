@@ -385,6 +385,28 @@ async def get_cached_data(content_hash):
             result[field] = value.decode('utf-8') if isinstance(value, bytes) else value
     return result
 
+def construct_video_info_text(video_info):
+    response_text = ""
+    if video_info:
+        if 'author' in video_info:
+            response_text += f"<b>Author: </b>{video_info['author']}\n"
+        if '<title' in video_info:
+            response_text += f"<b>Title: </b>{video_info['title']}\n"
+        if 'duration' in video_info:
+            response_text += f"<b>Duration: </b>,{video_info['duration']} seconds\n"
+        if 'publish_date' in video_info:
+            response_text += f"<b>Publish date: </b>,{video_info['publish_date']}\n"
+        if 'description' in video_info:
+            response_text += f"<b>Description: </b>,<blockquote expandable> {video_info['description']}</blockquote>\n"
+    return response_text
+
+async def cache_data(content_hash, summary, video_info=None):
+    print("Вызвана функция cache_data")
+    data = {'summary': summary}
+    if video_info:
+        data.update(video_info)
+    await redis_client.hset(f'study_buddy_youtube_info:{content_hash}', data)
+
 def main():
     try:
         init_redis()
@@ -406,24 +428,4 @@ def main():
 if __name__ == '__main__':
     #asyncio.run()
     main()
-def construct_video_info_text(video_info):
-    response_text = ""
-    if video_info:
-        if 'author' in video_info:
-            response_text += f"Author: {video_info['author']}\n"
-        if 'title' in video_info:
-            response_text += f"Title: {video_info['title']}\n"
-        if 'duration' in video_info:
-            response_text += f"Duration: {video_info['duration']} seconds\n"
-        if 'publish_date' in video_info:
-            response_text += f"Publish date: {video_info['publish_date']}\n"
-        if 'description' in video_info:
-            response_text += f"Description: {video_info['description']}\n"
-    return response_text
 
-async def cache_data(content_hash, summary, video_info=None):
-    print("Вызвана функция cache_data")
-    data = {'summary': summary}
-    if video_info:
-        data.update(video_info)
-    await redis_client.hmset(f'study_buddy_youtube_info:{content_hash}', data)
