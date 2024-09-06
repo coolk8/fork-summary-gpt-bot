@@ -149,19 +149,22 @@ def get_youtube_video_info(youtube_url):
 
 def extract_youtube_transcript(youtube_url):
     print("Вызвана функция extract_youtube_transcript")
-    try:
-        video_id_match = re.search(r"(?<=v=)[^&]+|(?<=youtu.be/)[^?|\n]+", youtube_url)
-        video_id = video_id_match.group(0) if video_id_match else None
-        if video_id is None:
-            raise ValueError("Invalid YouTube URL")
-        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id, proxies={"http": f"http://{zyte_api_key}:@api.zyte.com:8011/","https": f"http://{zyte_api_key}:@api.zyte.com:8011/",})
-        transcript = transcript_list.find_transcript(['en', 'en-US', 'ja', 'ko', 'de', 'fr', 'ru', 'it', 'es', 'pl', 'uk', 'nl', 'zh-TW', 'zh-CN', 'zh-Hant', 'zh-Hans'])
-        transcript_text = ' '.join([item['text'] for item in transcript.fetch()])
-        return transcript_text
-    except Exception as e:
-        error_traceback = traceback.format_exc()
-        print(f"Error: {e}\n{error_traceback}")
-        raise ValueError("Failed to extract YouTube transcript")
+    max_attempts = 3
+    for attempt in range(max_attempts):
+        try:
+            video_id_match = re.search(r"(?<=v=)[^&]+|(?<=youtu.be/)[^?|\n]+", youtube_url)
+            video_id = video_id_match.group(0) if video_id_match else None
+            if video_id is None:
+                raise ValueError("Invalid YouTube URL")
+            transcript_list = YouTubeTranscriptApi.list_transcripts(video_id, proxies={"http": f"http://{zyte_api_key}:@api.zyte.com:8011/","https": f"http://{zyte_api_key}:@api.zyte.com:8011/",})
+            transcript = transcript_list.find_transcript(['en', 'en-US', 'ja', 'ko', 'de', 'fr', 'ru', 'it', 'es', 'pl', 'uk', 'nl', 'zh-TW', 'zh-CN', 'zh-Hant', 'zh-Hans'])
+            transcript_text = ' '.join([item['text'] for item in transcript.fetch()])
+            return transcript_text
+        except Exception as e:
+            error_traceback = traceback.format_exc()
+            print(f"Attempt {attempt + 1} failed. Error: {e}\n{error_traceback}")
+            if attempt == max_attempts - 1:
+                raise ValueError("Failed to extract YouTube transcript after 3 attempts")
 
 def retrieve_yt_transcript_from_url(youtube_url):
     print("Вызвана функция retrieve_yt_transcript_from_url")
@@ -272,10 +275,13 @@ async def handle(command, update, context):
 
                 await context.bot.send_message(chat_id=chat_id, text=response_text, reply_to_message_id=update.message.message_id, parse_mode="HTML")
             except ValueError as e:
-                if str(e) == "Please try again":
+                error_message = str(e)
+                if error_message == "Please try again":
                     await context.bot.send_message(chat_id=chat_id, text="Please try again", reply_to_message_id=update.message.message_id)
+                elif "Failed to extract YouTube transcript" in error_message:
+                    await context.bot.send_message(chat_id=chat_id, text="Failed to extract YouTube transcript. Please try again later or with a different video.", reply_to_message_id=update.message.message_id)
                 else:
-                    raise
+                    await context.bot.send_message(chat_id=chat_id, text=f"An error occurred: {error_message}", reply_to_message_id=update.message.message_id)
         elif command == 'file':
             file_path = f"{update.message.document.file_unique_id}.pdf"
             print("file_path=", file_path)
