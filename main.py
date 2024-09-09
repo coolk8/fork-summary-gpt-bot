@@ -11,6 +11,7 @@ from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CommandHandler, MessageHandler, CallbackQueryHandler, filters, ApplicationBuilder
+import asyncio
 from youtube_transcript_api import YouTubeTranscriptApi
 from pytubefix import YouTube
 
@@ -214,6 +215,9 @@ def handle_start(update, context):
 def handle_help(update, context):
     return handle('help', update, context)
 
+def handle_showall(update, context):
+    return handle('showall', update, context)
+
 def handle_summarize(update, context):
     return handle('summarize', update, context)
 
@@ -242,6 +246,22 @@ async def handle(command, update, context):
             await context.bot.send_message(chat_id=chat_id, text="I can summarize text, URLs, PDFs and YouTube video for you.")
         elif command == 'help':
             await context.bot.send_message(chat_id=chat_id, text="Report bugs here 👉 https://github.com/tpai/summary-gpt-bot/issues", disable_web_page_preview=True)
+        elif command == 'showall':
+            user_requests = await get_user_requests(user_id)
+            if not user_requests:
+                await context.bot.send_message(chat_id=chat_id, text="У вас пока нет сохраненных видео.")
+                return
+            
+            await context.bot.send_message(chat_id=chat_id, text="Вот список ваших сохраненных видео:")
+            
+            for content_hash in user_requests:
+                cached_data = await get_cached_data(content_hash)
+                if cached_data:
+                    video_info_text = construct_video_info_text(cached_data)
+                    summary = cached_data.get('summary', 'Нет доступного резюме')
+                    message = f"{video_info_text}\n<b>Резюме:</b>\n{summary}"
+                    await context.bot.send_message(chat_id=chat_id, text=message, parse_mode="HTML", disable_web_page_preview=True)
+                    await asyncio.sleep(0.5)  # Пауза 0.5 секунды между сообщениями
         elif command == 'summarize':
             user_input = update.message.text
             print("user_input=", user_input)
@@ -444,12 +464,14 @@ def main():
         application = ApplicationBuilder().token(telegram_token).build()
         start_handler = CommandHandler('start', handle_start)
         help_handler = CommandHandler('help', handle_help)
+        showall_handler = CommandHandler('showall', handle_showall)
         summarize_handler = MessageHandler(filters.TEXT & ~filters.COMMAND, handle_summarize)
         file_handler = MessageHandler(filters.Document.PDF, handle_file)
         button_click_handler = CallbackQueryHandler(handle_button_click)
         application.add_handler(file_handler)
         application.add_handler(start_handler)
         application.add_handler(help_handler)
+        application.add_handler(showall_handler)
         application.add_handler(summarize_handler)
         application.add_handler(button_click_handler)
         application.run_polling()
