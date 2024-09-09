@@ -252,17 +252,24 @@ async def handle(command, update, context):
                 await context.bot.send_message(chat_id=chat_id, text="У вас пока нет сохраненных видео.")
                 return
             
-            video_titles = []
+            video_info_list = []
             for content_hash in user_requests:
                 cached_data = await get_cached_data(content_hash)
                 print(f"Cached data for hash {content_hash}: {cached_data}")  # Добавлен вывод в лог
-                if cached_data and 'title' in cached_data:
-                    video_titles.append(cached_data['title'])
+                if cached_data:
+                    video_info = {
+                        'title': cached_data.get('title', 'Название недоступно'),
+                        'author': cached_data.get('author', 'Автор неизвестен'),
+                        'url': cached_data.get('url', '#')
+                    }
+                    video_info_list.append(video_info)
             
-            if video_titles:
-                message = "Список ваших сохраненных видео:\n\n" + "\n".join(f"• {title}" for title in video_titles)
+            if video_info_list:
+                message = "Список ваших сохраненных видео:\n\n"
+                for info in video_info_list:
+                    message += f"• <a href='{info['url']}'>{info['title']}</a> от {info['author']}\n"
             else:
-                message = "У вас есть сохраненные видео, но не удалось получить их названия."
+                message = "У вас есть сохраненные видео, но не удалось получить информацию о них."
             
             await context.bot.send_message(chat_id=chat_id, text=message, parse_mode="HTML", disable_web_page_preview=True)
                     
@@ -418,7 +425,8 @@ async def add_user_request(user_id, content_hash):
 
 async def get_user_requests(user_id):
     print("Вызвана функция get_user_requests")
-    return await redis_client.smembers(f'study_buddy_users:{user_id}:requests')
+    requests = await redis_client.smembers(f'study_buddy_users:{user_id}:requests')
+    return [request.decode('utf-8') if isinstance(request, bytes) else request for request in requests]
 
 
 async def get_cached_data(content_hash):
