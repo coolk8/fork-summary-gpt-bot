@@ -255,6 +255,7 @@ async def handle(command, update, context):
             video_titles = []
             for content_hash in user_requests:
                 cached_data = await get_cached_data(content_hash)
+                print(f"Cached data for hash {content_hash}: {cached_data}")  # Добавлен вывод в лог
                 if cached_data and 'title' in cached_data:
                     video_titles.append(cached_data['title'])
             
