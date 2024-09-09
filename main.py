@@ -141,6 +141,7 @@ def get_youtube_video_info(youtube_url):
             "duration": yt.length,
             "publish_date": yt.publish_date.strftime("%Y-%m-%d"),            
             "description": yt.description,
+            "url": youtube_url,
         }
         return video_info
     except Exception as e:
@@ -398,7 +399,7 @@ async def get_user_requests(user_id):
 
 async def get_cached_data(content_hash):
     print("Вызвана функция get_cached_data")
-    fields = ['author', 'title', 'duration', 'publish_date', 'description', 'summary']
+    fields = ['author', 'title', 'duration', 'publish_date', 'description', 'summary', 'url']
     values = await redis_client.hmget(f'study_buddy_youtube_info:{content_hash}', fields)
     result = {}
     for field, value in zip(fields, values):
