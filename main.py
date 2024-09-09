@@ -260,8 +260,9 @@ async def handle(command, update, context):
                     video_info_text = construct_video_info_text(cached_data)
                     summary = cached_data.get('summary', 'Нет доступного резюме')
                     message = f"{video_info_text}\n<b>Резюме:</b>\n{summary}"
+                    await asyncio.sleep(1.0)  # Пауза 1 секунда между сообщениями
                     await context.bot.send_message(chat_id=chat_id, text=message, parse_mode="HTML", disable_web_page_preview=True)
-                    await asyncio.sleep(0.5)  # Пауза 0.5 секунды между сообщениями
+                    
         elif command == 'summarize':
             user_input = update.message.text
             print("user_input=", user_input)
