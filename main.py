@@ -252,16 +252,18 @@ async def handle(command, update, context):
                 await context.bot.send_message(chat_id=chat_id, text="У вас пока нет сохраненных видео.")
                 return
             
-            await context.bot.send_message(chat_id=chat_id, text="Вот список ваших сохраненных видео:")
-            
+            video_titles = []
             for content_hash in user_requests:
                 cached_data = await get_cached_data(content_hash)
-                if cached_data:
-                    video_info_text = construct_video_info_text(cached_data)
-                    summary = cached_data.get('summary', 'Нет доступного резюме')
-                    message = f"{video_info_text}\n<b>Резюме:</b>\n{summary}"
-                    await asyncio.sleep(1.0)  # Пауза 1 секунда между сообщениями
-                    await context.bot.send_message(chat_id=chat_id, text=message, parse_mode="HTML", disable_web_page_preview=True)
+                if cached_data and 'title' in cached_data:
+                    video_titles.append(cached_data['title'])
+            
+            if video_titles:
+                message = "Список ваших сохраненных видео:\n\n" + "\n".join(f"• {title}" for title in video_titles)
+            else:
+                message = "У вас есть сохраненные видео, но не удалось получить их названия."
+            
+            await context.bot.send_message(chat_id=chat_id, text=message, parse_mode="HTML", disable_web_page_preview=True)
                     
         elif command == 'summarize':
             user_input = update.message.text
