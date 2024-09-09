@@ -407,6 +407,14 @@ async def get_cached_data(content_hash):
             result[field] = value.decode('utf-8') if isinstance(value, bytes) else value
     return result
 
+def format_duration(seconds):
+    hours, remainder = divmod(int(seconds), 3600)
+    minutes, seconds = divmod(remainder, 60)
+    if hours > 0:
+        return f"{hours}:{minutes:02d}:{seconds:02d}"
+    else:
+        return f"{minutes:02d}:{seconds:02d}"
+
 def construct_video_info_text(video_info):
     response_text = ""
     if video_info:
@@ -415,7 +423,8 @@ def construct_video_info_text(video_info):
         if 'title' in video_info:
             response_text += f"<b>Title: </b>{video_info['title']}\n"
         if 'duration' in video_info:
-            response_text += f"<b>Duration: </b>{video_info['duration']} seconds\n"
+            formatted_duration = format_duration(video_info['duration'])
+            response_text += f"<b>Duration: </b>{formatted_duration}\n"
         if 'publish_date' in video_info:
             response_text += f"<b>Publish date: </b>{video_info['publish_date']}\n"
         if 'description' in video_info:
